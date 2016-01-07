@@ -2,6 +2,7 @@ package test;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.Random;
@@ -10,47 +11,84 @@ import net.smacke.jaydio.*;
 public class Main {
 	static final ThreadMXBean threadBean = ManagementFactory.getThreadMXBean();
 	
-	public static void directFileAccess() throws IOException{
+	public static void directFileAccess(byte[] buf,int bs, int nt, int rs) throws IOException{
 		System.out.println("--Jaydio test starting--");
-
-		int bufferSize = 4*1024;//*1024; // Use 1 MiB buffers
-		byte[] buf = new byte[bufferSize];
-		System.out.println(bufferSize);
 		
-		DirectRandomAccessFile fin = new DirectRandomAccessFile(new File("big.txt"), "r", bufferSize);
-		System.out.println("->FileIn created!");
-		DirectRandomAccessFile fout = new DirectRandomAccessFile(new File("big_copy.txt"), "rw", bufferSize);
-		System.out.println("->FileOut created!");
+		DirectRandomAccessFile dfin = new DirectRandomAccessFile(new File("url_0.pl"), "r", bs);
+		System.out.println("->File for Raw Access created!");
 		
 		Random randomGenerator = new Random();
 		long random;
 		
-		System.out.println("->Copy Init!");
+		System.out.println("->Test Init!");
 		long start = threadBean.getCurrentThreadCpuTime();
-		
-		//while (fin.getFilePointer() < fin.length()){
-		for (int i=0; i<10; i++){
-			random = (long)(randomGenerator.nextDouble()*fin.length());
-			System.out.println("->Ramdom Number: " + random);
-			fin.seek(random);
-			int remaining = (int)Math.min(bufferSize,fin.length() - fin.getFilePointer());
-			fin.read(buf,0,remaining);
-			fout.write(buf,0,remaining);
-			
+
+		for (int i=0; i<nt; i++){
+			random = (long)(randomGenerator.nextDouble()*dfin.length());
+			dfin.seek(random);
+			int remaining = (int)Math.min(rs, dfin.length() - dfin.getFilePointer());
+			dfin.read(buf,0,remaining);
 		}
-		long end = threadBean.getCurrentThreadCpuTime();
-		System.out.println("->End of Copy!");
 		
-		//Tempo convertido de nanosegundos para milesegundos e mostrado
+		long end = threadBean.getCurrentThreadCpuTime();
+		System.out.println("->End of Test!");
+		
+		//System.out.println("->Writes Counter: " + counter);
+		
+		//Tempo convertido de nanosegundos para microsegundos/milesegundos e mostrado
 		System.out.println("Tempo de execução: " + (end-start) + " ns");
 		System.out.println("Tempo de execução: " + (end-start)/1000 + " us");
 		System.out.println("Tempo de execução: " + (end-start)/1000000 + " ms");
-		fin.close();
-		fout.close();
+		dfin.close();
+		
+		System.out.println("-Jaydio test ending-\n");
+	}
+
+	public static void randomFileAccess(byte[] buf, int nt) throws IOException{
+		System.out.println("-RandomAccess test starting-");
+		
+		RandomAccessFile rfin = new RandomAccessFile("url_0.pl", "r");
+		System.out.println("->File for Random Access created!");
+		
+		Random randomGenerator = new Random();
+		long random;
+		
+		System.out.println("->Test Init!");
+		long start = threadBean.getCurrentThreadCpuTime();
+
+		for (int i=0; i<nt; i++){
+			random = (long)(randomGenerator.nextDouble()*rfin.length());
+			rfin.seek(random);
+			rfin.read(buf);
+		}
+		
+		long end = threadBean.getCurrentThreadCpuTime();
+		System.out.println("->End of Test!");
+		
+		//Tempo convertido de nanosegundos para microsegundos/milesegundos e mostrado
+		System.out.println("Tempo de execução: " + (end-start) + " ns");
+		System.out.println("Tempo de execução: " + (end-start)/1000 + " us");
+		System.out.println("Tempo de execução: " + (end-start)/1000000 + " ms");
+		rfin.close();
+		
+		System.out.println("-RandomAccess test ending-\n");
 	}
 	
 	public static void main(String[] args) throws IOException  {
-		directFileAccess();
+		System.out.println("--RawAccess-Vs-MMF test starting--");
+		
+		int numTests = 1000;
+		int readSize = 512;
+		int bufferSize = 4*1024;//*1024; // Use 1 MiB buffers
+		byte[] buf = new byte[bufferSize];
+		System.out.println("App Buffer size: "+bufferSize+"\n");
+		
+		//Random IO Test Init
+		randomFileAccess(buf, numTests);
+		
+		//Direct IO Test Init
+		directFileAccess(buf, bufferSize, numTests, readSize);
+		
+		System.out.println("--RawAccess-Vs-MMF test Ending--");
 	}
-
 }
